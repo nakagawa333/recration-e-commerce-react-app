@@ -1,0 +1,18 @@
+.cards{
+  display:flex;
+  justify-content:space-around;
+}
+
+.text-right{
+  text-align: right;
+}
+
+.category-component-card{
+  width:90%;
+  margin:0 auto;
+}
+
+.card-item-img{
+  width:300px;
+  height:250px;
+}
