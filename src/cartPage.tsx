@@ -1,12 +1,15 @@
 import Card from "@mui/material/Card";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import CardHeader from '@mui/material/CardHeader';
-import { CardContent, Select, TextField } from "@mui/material";
+import { Button, CardContent, Select, TextField } from "@mui/material";
 import { Categorys } from "./interface/categorys";
 import axios, { AxiosError, AxiosResponse, HttpStatusCode } from "axios";
 import { useLayoutEffect, useState } from "react";
 import Header from "./Header";
 import { CategorysItems } from "./interface/categorysItems";
+import { Grid } from '@mui/material';
+import Box from "@mui/material/Box";
+import { Path } from "./constant/path";
 
 /**
  * カートページ画面
@@ -14,6 +17,7 @@ import { CategorysItems } from "./interface/categorysItems";
  */
 function CartPage(){
     const location = useLocation();
+    const navigate = useNavigate();
     //カテゴリー一覧
     const [categorys,setCategorys] = useState([]);
     //小計
@@ -49,11 +53,15 @@ function CartPage(){
      */
     const quantityChange = async(event:React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,i:number,j:number) => {
         if(categorys && categorys.length !== 0){
-            let thisCategory = JSON.parse(JSON.stringify(location?.state?.categorys));
-            thisCategory[i]["items"][j]["cart"] = Number(event.target.value);
+            let thisCategorys = JSON.parse(JSON.stringify(categorys));
+            thisCategorys[i]["items"][j]["cart"] = Number(event.target.value);
             try{
-                await categorysUpdate(thisCategory);
-                setCategorys(thisCategory);
+                await categorysUpdate(thisCategorys);
+                setCategorys(thisCategorys);
+                //小計を計算する
+                calSubtotals(thisCategorys);
+                //合計を計算する
+                calTotal(thisCategorys);
             } catch(error:any){
                 throw new Error(error.message);
             }
@@ -105,7 +113,7 @@ function CartPage(){
         for(let category of categorys){
             let items:CategorysItems[] = category.items;
             for(let item of items){
-                if(item.cart < 1){
+                if(0 < item.cart){
                     total += item.cart * item.price;
                 }
             }
@@ -113,52 +121,123 @@ function CartPage(){
         setTotal(total);        
     }
 
+    /**
+     * お気に入りから削除する
+     * @param i 
+     * @param j 
+     */
+    const deleteFavorite = async(i:number,j:number) => {
+        let thisCategorys = JSON.parse(JSON.stringify(categorys));
+        thisCategorys[i]["items"][j]["favorite"] = false;
+
+        try{
+            await categorysUpdate(thisCategorys);
+            setCategorys(thisCategorys);
+        } catch(error:any){
+            throw new Error(error.message);
+        }
+    }
+
+    /**
+     * favorite Itemsページに遷移する。
+     */
+    const favoriteTrans = () => {
+        navigate(Path.FAVORIEITEMS);
+    }
+
     return(
         <div>
             <Header title="Electric Commerce" categorys={categorys}/>  
 
-            <Card>
-                <CardHeader title="Cart"></CardHeader>
-            {
-                categorys.map((category:any,index:number) => {
-                    return(
-                        <div key={index}>
-                                {
-                                    category?.items && category.items.map((item:any,j:number) => {
-                                        if(0 < item.cart){
-                                            return(
-                                                <Card key={j}>
-                                                    <CardContent style={{display:"flex",justifyContent:"space-around"}}>
-                                                        <img src={item.image} />
-                                                        <p>{item.productname}</p>
-                                                        <div>
-                                                            <p>{item.price}円</p>
-                                                            <div style={{display:"flex"}}>
-                                                                <p>数量:</p>
-                                                                <TextField 
-                                                                   type="number"
-                                                                   InputProps={{ inputProps: { min: 1} }}
-                                                                   value={item.cart}
-                                                                   onChange={((event) => quantityChange(event,index,j))}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            )
+            <Grid container rowSpacing={4} columnSpacing={{xs: 1, sm: 2, md: 3 }}>
+                <Grid item xs={8} md={8}>
+                    <Card>
+                        <CardHeader title="Cart"></CardHeader>
+                    {
+                        categorys.map((category:any,index:number) => {
+                            return(
+                                <div key={index}>
+                                        {
+                                            category?.items && category.items.map((item:any,j:number) => {
+                                                if(0 < item.cart){
+                                                    return(
+                                                        <Card key={j}>
+                                                            <CardContent style={{display:"flex",justifyContent:"space-around"}}>
+                                                                <img width="300"  height="250" src={item.image} />
+                                                                <p>{item.productname}</p>
+                                                                <div>
+                                                                    <p>{item.price}円</p>
+                                                                    <div style={{display:"flex"}}>
+                                                                        <p>数量:</p>
+                                                                        <TextField 
+                                                                        type="number"
+                                                                        InputProps={{ inputProps: { min: 1} }}
+                                                                        value={item.cart}
+                                                                        onChange={((event) => quantityChange(event,index,j))}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                    )
+                                                }
+                                            })
                                         }
+                                </div>
+                            )
+                        })
+                    }
+                    </Card>
+                </Grid>
+
+                <Grid item xs={4} md={4}>
+                    <Card>
+                        <p>小計:{subTotals}</p>
+                        <p>合計:{total}</p>
+                        <Button variant="contained">購入する</Button>
+                    </Card>
+                </Grid>
+            </Grid>
+            
+            <Box
+                justifyContent="center"
+                alignItems="center"
+                minHeight="100vh"
+                marginTop={"30px"}
+            >
+                <Grid container alignItems="center">
+                        <Grid item xs={12} md={10}>
+                            <Card>
+                                <CardHeader title="Favorite Items" onClick={favoriteTrans}></CardHeader>
+                                {
+                                    categorys && categorys.length !== 0 && categorys.map((category:Categorys,index:number) => {
+                                        return(
+                                            <div key={index}>
+                                                { category?.items && category.items.map((item:CategorysItems,j:number) => {
+                                                    if(item.favorite){
+                                                        return(
+                                                            <CardContent style={{display:"flex",justifyContent:"space-around"}}>
+                                                                <img width="300"  height="250" src={item.image} />
+                                                                <p>{item.productname}</p>
+                                                                <div>
+                                                                    <p>{item.price}円</p>
+                                                                    <p>カートに追加する</p>
+                                                                    <p onClick={(() => deleteFavorite(index,j))}>お気に入りから削除する</p>
+                                                                </div>
+                                                            </CardContent>
+                                                        )
+                                                    }
+                                                })
+                                                }
+                                            </div>
+                                        )
                                     })
                                 }
-                        </div>
-                    )
-                })
-            }
-            </Card>
+                            </Card>
+                        </Grid>
+                </Grid>
 
-            <Card>
-                <p>小計:{subTotals}</p>
-                <p>合計:{total}</p>
-            </Card>
+            </Box>
         </div>
     )  
 }

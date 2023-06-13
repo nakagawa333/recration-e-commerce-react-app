@@ -5,8 +5,9 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import ProductDetail from './ProductDetail';
-import CartPage from './cartPage';
 import { Path } from './constant/path';
+import CartPage from './CartPage';
+import FavoriteItems from './FavoriteItems';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -20,7 +21,8 @@ root.render(
       <Route path={Path.CARTPAGE} element={<CartPage />}>
       </Route>
       <Route path={Path.PRODUCTDETAIL} element={<ProductDetail />}>
-
+      </Route>
+      <Route path={Path.FAVORIEITEMS} element={<FavoriteItems/>}>
       </Route>
     </Routes>
   </BrowserRouter>
