@@ -6,7 +6,7 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import ProductDetail from './ProductDetail';
 import { Path } from './constant/path';
-import CartPage from './CartPage';
+import CartPage from './cartPage/CartPage';
 import FavoriteItems from './FavoriteItems';
 
 const root = ReactDOM.createRoot(

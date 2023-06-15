@@ -2,15 +2,16 @@ import Card from "@mui/material/Card";
 import { useLocation, useNavigate } from "react-router-dom";
 import CardHeader from '@mui/material/CardHeader';
 import { Button, CardContent, Select, TextField } from "@mui/material";
-import { Categorys } from "./interface/categorys";
+import { Categorys } from "../interface/categorys";
 import axios, { AxiosError, AxiosResponse, HttpStatusCode } from "axios";
 import { useLayoutEffect, useState } from "react";
-import Header from "./Header";
-import { CategorysItems } from "./interface/categorysItems";
+import Header from "../Header";
+import { CategorysItems } from "../interface/categorysItems";
 import { Grid } from '@mui/material';
 import Box from "@mui/material/Box";
-import { Path } from "./constant/path";
-
+import { Path } from "../constant/path";
+import { CartInfo } from "../interface/cartInfo";
+import CartLook from "./CartLook";
 /**
  * カートページ画面
  * @returns jsx
@@ -20,6 +21,8 @@ function CartPage(){
     const navigate = useNavigate();
     //カテゴリー一覧
     const [categorys,setCategorys] = useState([]);
+    //カート一覧
+    const [cartInfo,setCartInfo]:any = useState({});
     //小計
     const [subTotals,setSubtotals] = useState(0);
     //合計
@@ -42,6 +45,21 @@ function CartPage(){
         })
         .catch((error:AxiosError) => {
           console.error(error);
+          console.error(error.message);
+        })
+
+        axios.get("http://localhost:3004/" + "cart/info")
+        .then((res:AxiosResponse) => {
+            setCartInfo(res.data.cartInfo);
+            console.info("カート情報取得",res);
+        })
+        .catch((error:AxiosError) => {
+            console.error(error);
+            console.error(error.message);
+        })
+        .catch((error:any) => {
+            console.error(error);
+            console.error("予期せぬエラーが発生しました");
         })
       },[]);
 
@@ -51,21 +69,44 @@ function CartPage(){
      * @param i 
      * @param j 
      */
-    const quantityChange = async(event:React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,i:number,j:number) => {
-        if(categorys && categorys.length !== 0){
-            let thisCategorys = JSON.parse(JSON.stringify(categorys));
-            thisCategorys[i]["items"][j]["cart"] = Number(event.target.value);
+    const quantityChange = async(event:React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,itemId:string) => {
+        let thisCartInfo = JSON.parse(JSON.stringify(cartInfo));
+        if(thisCartInfo && Object.keys(thisCartInfo).length !== 0){
+            thisCartInfo[itemId]["cart"] = Number(event.target.value);
             try{
-                await categorysUpdate(thisCategorys);
-                setCategorys(thisCategorys);
-                //小計を計算する
-                calSubtotals(thisCategorys);
-                //合計を計算する
-                calTotal(thisCategorys);
+                await cartInfoUpdate(thisCartInfo);
+                //カート情報を更新する
+                setCartInfo(thisCartInfo);
+                // //小計を計算する
+                // calSubtotals(thisCategorys);
+                // //合計を計算する
+                // calTotal(thisCategorys);
             } catch(error:any){
                 throw new Error(error.message);
             }
         }
+    }
+
+    /**
+     * カート情報を更新する
+     * @param cartInfo カート情報
+     */
+    const cartInfoUpdate = async(cartInfo:any) => {
+        axios.post("http://localhost:3004/cart/update",cartInfo)
+        .then((res:AxiosResponse) => {
+            //HTTPレスポンスが200
+            if(res.status !== HttpStatusCode.Ok){
+                throw new Error("レスポンスが異常です。");
+            }
+        })
+        .catch((error:AxiosError) => {
+            console.error(error);
+            console.error(error.message);
+        })
+        .catch((error:any) => {
+            console.error(error);
+            console.error("エラーが発生しました");
+        })
     }
 
     /**
@@ -148,47 +189,8 @@ function CartPage(){
     return(
         <div>
             <Header title="Electric Commerce" categorys={categorys}/>  
-
             <Grid container rowSpacing={4} columnSpacing={{xs: 1, sm: 2, md: 3 }}>
-                <Grid item xs={8} md={8}>
-                    <Card>
-                        <CardHeader title="Cart"></CardHeader>
-                    {
-                        categorys.map((category:any,index:number) => {
-                            return(
-                                <div key={index}>
-                                        {
-                                            category?.items && category.items.map((item:any,j:number) => {
-                                                if(0 < item.cart){
-                                                    return(
-                                                        <Card key={j}>
-                                                            <CardContent style={{display:"flex",justifyContent:"space-around"}}>
-                                                                <img width="300"  height="250" src={item.image} />
-                                                                <p>{item.productname}</p>
-                                                                <div>
-                                                                    <p>{item.price}円</p>
-                                                                    <div style={{display:"flex"}}>
-                                                                        <p>数量:</p>
-                                                                        <TextField 
-                                                                        type="number"
-                                                                        InputProps={{ inputProps: { min: 1} }}
-                                                                        value={item.cart}
-                                                                        onChange={((event) => quantityChange(event,index,j))}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </CardContent>
-                                                        </Card>
-                                                    )
-                                                }
-                                            })
-                                        }
-                                </div>
-                            )
-                        })
-                    }
-                    </Card>
-                </Grid>
+                <CartLook cartInfo={cartInfo} quantityChange={quantityChange} />
 
                 <Grid item xs={4} md={4}>
                     <Card>
@@ -216,7 +218,7 @@ function CartPage(){
                                                 { category?.items && category.items.map((item:CategorysItems,j:number) => {
                                                     if(item.favorite){
                                                         return(
-                                                            <CardContent style={{display:"flex",justifyContent:"space-around"}}>
+                                                            <CardContent style={{display:"flex",justifyContent:"space-around"}} key={j}>
                                                                 <img width="300"  height="250" src={item.image} />
                                                                 <p>{item.productname}</p>
                                                                 <div>
