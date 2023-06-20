@@ -4,5 +4,4 @@ export interface CategorysItems{
     productname:string,
     price:number,
     favorite:boolean,
-    cart:number
 }

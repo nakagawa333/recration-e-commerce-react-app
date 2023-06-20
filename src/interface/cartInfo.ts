@@ -1,5 +1,5 @@
 export interface CartInfo{
-    itemId:{
+    [itemId: string]:{
         itemId:string,
         image:string,
         productname:string,

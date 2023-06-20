@@ -1,10 +1,10 @@
 import Card from "@mui/material/Card";
-import { useLocation, useNavigate } from "react-router-dom";
+import { NavigateFunction, useLocation, useNavigate } from "react-router-dom";
 import CardHeader from '@mui/material/CardHeader';
-import { Button, CardContent, Select, TextField } from "@mui/material";
+import { AlertColor, Button, CardContent, Select, SnackbarOrigin, TextField } from "@mui/material";
 import { Categorys } from "../interface/categorys";
 import axios, { AxiosError, AxiosResponse, HttpStatusCode } from "axios";
-import { useLayoutEffect, useState } from "react";
+import { Dispatch, SetStateAction, useLayoutEffect, useMemo, useState } from "react";
 import Header from "../Header";
 import { CategorysItems } from "../interface/categorysItems";
 import { Grid } from '@mui/material';
@@ -12,56 +12,95 @@ import Box from "@mui/material/Box";
 import { Path } from "../constant/path";
 import { CartInfo } from "../interface/cartInfo";
 import CartLook from "./CartLook";
+import { isNoSubstitutionTemplateLiteral } from "typescript";
+import PushSnackbar from "../snackbar/PushSnackbar";
+import CartRes from "./CartRes";
+import FavoriteItem from "./FavoriteItem";
 /**
  * カートページ画面
  * @returns jsx
  */
 function CartPage(){
     const location = useLocation();
-    const navigate = useNavigate();
+    const navigate:NavigateFunction = useNavigate();
+
+    //snackbarメッセージ
+    const [snackbarMessage,setSnackbarMessage] = useState<string>("");
+    //snackbar 表示フラグ
+    const [snackbarOpenFlag,setSnackbarOpenFlag] = useState<boolean>(false);
+    
     //カテゴリー一覧
-    const [categorys,setCategorys] = useState([]);
+    const [categorys,setCategorys] = useState<Categorys[]>([]);
     //カート一覧
-    const [cartInfo,setCartInfo]:any = useState({});
+    const [cartInfo,setCartInfo] = useState<CartInfo>({});
     //小計
-    const [subTotals,setSubtotals] = useState(0);
+    const [subTotals,setSubtotals] = useState<number>(0);
     //合計
-    const [total,setTotal] = useState(0);
+    const [total,setTotal] = useState<number>(0);
+
+    const snackbarOrigin:SnackbarOrigin = {
+        vertical:"top",
+        horizontal:"center"
+    }
+
+    const severity:AlertColor = "success";
+    const autoHideDuration:number = 6000;
 
     useLayoutEffect(() => {
+        categoryRegister();
+        getCartInfo();
+    },[]);
+
+
+    /**
+     * カテゴリー取得
+     */
+    const categoryRegister = () => {
         axios.get("http://localhost:3004/categorys/register")
         .then((res:AxiosResponse) => {
-          //HTTPレスポンスが200
-          if(res.status === HttpStatusCode.Ok){
+            //HTTPレスポンスが200以外
+            if(res.status !== HttpStatusCode.Ok){
+                console.error(res);
+                return;
+            }
             let categorys = res.data;
             //カテゴリー一覧を最新化
             setCategorys(categorys);
-            //小計を計算する
-            calSubtotals(categorys);
-            //合計を計算する
-            calTotal(categorys);
-          }
-          console.info(res);
+            console.info("カテゴリー情報",res);
         })
         .catch((error:AxiosError) => {
-          console.error(error);
-          console.error(error.message);
+            console.error(error);
+            console.error(error.message);
         })
+    }
 
-        axios.get("http://localhost:3004/" + "cart/info")
+    /**
+     * カート情報を取得する
+     */
+    const getCartInfo = () => {
+        axios.get("http://localhost:3004/cart/info")
         .then((res:AxiosResponse) => {
-            setCartInfo(res.data.cartInfo);
+            //HTTPレスポンスが200以外
+            if(res.status !== HttpStatusCode.Ok){
+                console.error(res);
+                return;
+            }
+
+            //カート情報
+            let cartInfo = res.data.cartInfo;
+            //カート一覧
+            setCartInfo(cartInfo);
+            //小計を計算する
+            calSubtotals(cartInfo);
+            //合計を計算する
+            calTotal(cartInfo);
             console.info("カート情報取得",res);
         })
         .catch((error:AxiosError) => {
             console.error(error);
             console.error(error.message);
         })
-        .catch((error:any) => {
-            console.error(error);
-            console.error("予期せぬエラーが発生しました");
-        })
-      },[]);
+    }  
 
     /**
      * 数量変更時
@@ -77,10 +116,10 @@ function CartPage(){
                 await cartInfoUpdate(thisCartInfo);
                 //カート情報を更新する
                 setCartInfo(thisCartInfo);
-                // //小計を計算する
-                // calSubtotals(thisCategorys);
-                // //合計を計算する
-                // calTotal(thisCategorys);
+                //小計を計算する
+                calSubtotals(thisCartInfo);
+                //合計を計算する
+                calTotal(thisCartInfo);
             } catch(error:any){
                 throw new Error(error.message);
             }
@@ -88,16 +127,18 @@ function CartPage(){
     }
 
     /**
-     * カート情報を更新する
-     * @param cartInfo カート情報
+     * カテゴリー情報を更新する
+     * @param categorys カテゴリー一覧
      */
-    const cartInfoUpdate = async(cartInfo:any) => {
-        axios.post("http://localhost:3004/cart/update",cartInfo)
+    const categorysUpdate = (categorys:Categorys[]) => {
+        axios.post("http://localhost:3004/categorys/update",categorys)
         .then((res:AxiosResponse) => {
-            //HTTPレスポンスが200
+            //HTTPレスポンスが200以外
             if(res.status !== HttpStatusCode.Ok){
-                throw new Error("レスポンスが異常です。");
+                console.error(res);
+                return;
             }
+            console.info("カテゴリー更新",res);
         })
         .catch((error:AxiosError) => {
             console.error(error);
@@ -110,21 +151,25 @@ function CartPage(){
     }
 
     /**
-     * カテゴリー一覧を更新する。
-     * @param categorys カテゴリー一覧
+     * カート情報を更新する
+     * @param cartInfo カート情報
      */
-    const categorysUpdate = async(categorys:Categorys) => {
-    axios.post("http://localhost:3004/categorys/update",categorys)
+    const cartInfoUpdate =  async(cartInfo:CartInfo) => {
+        axios.post("http://localhost:3004/cart/update",cartInfo)
         .then((res:AxiosResponse) => {
             //HTTPレスポンスが200
             if(res.status !== HttpStatusCode.Ok){
                 throw new Error("レスポンスが異常です。");
             }
-            //画面上のカテゴリー一覧を更新
-            console.info(res);
+            console.info("カート情報更新",res);
         })
         .catch((error:AxiosError) => {
             console.error(error);
+            console.error(error.message);
+        })
+        .catch((error:any) => {
+            console.error(error);
+            console.error("エラーが発生しました");
         })
     }
 
@@ -132,16 +177,11 @@ function CartPage(){
      * 小計を計算する。
      * @param categorys カテゴリー一覧
      */
-    const calSubtotals = (categorys:Categorys[]) => {
-        let subTotals = 0;
-        for(let category of categorys){
-            let items:CategorysItems[] = category.items;
-            for(let item of items){
-                if(0 < item.cart){
-                    subTotals += item.cart;
-                }                
-            }
-        }
+    const calSubtotals = (cartInfo:any[]) => {
+        let subTotals:number = 0;
+        Object.keys(cartInfo).forEach((cart:any) => {
+            subTotals += cartInfo[cart].cart;
+        })
         setSubtotals(subTotals);
     }
 
@@ -149,16 +189,11 @@ function CartPage(){
      * 合計を計算する。
      * @param categorys カテゴリー一覧
      */
-    const calTotal = (categorys:Categorys[]) => {
+    const calTotal = (cartInfo:any[]) => {
         let total = 0;
-        for(let category of categorys){
-            let items:CategorysItems[] = category.items;
-            for(let item of items){
-                if(0 < item.cart){
-                    total += item.cart * item.price;
-                }
-            }
-        }
+        Object.keys(cartInfo).forEach((cart:any) => {
+            total += cartInfo[cart].cart * cartInfo[cart].price;
+        })
         setTotal(total);        
     }
 
@@ -168,7 +203,7 @@ function CartPage(){
      * @param j 
      */
     const deleteFavorite = async(i:number,j:number) => {
-        let thisCategorys = JSON.parse(JSON.stringify(categorys));
+        let thisCategorys:Categorys[] = JSON.parse(JSON.stringify(categorys));
         thisCategorys[i]["items"][j]["favorite"] = false;
 
         try{
@@ -180,6 +215,85 @@ function CartPage(){
     }
 
     /**
+     * 購入するクリック時
+     */
+    const purchaseClick = () => {
+        // TODO 初期化処理 後で処理内容は要検討
+        axios.post("http://localhost:3004" + "/cart/init")
+        .then((res:AxiosResponse) => {
+            console.info(res);
+            //HTTPレスポンスが200以外
+            if(res.status !== HttpStatusCode.Ok){
+                console.error(res);
+                return;
+            }
+
+            setSnackbarMessage("購入出来ました");
+            setSnackbarOpenFlag(true);
+            //カート情報
+            setCartInfo({});
+        })
+        .catch((error:AxiosError) => {
+            console.error(error.message);
+        })
+        .catch((error:any) => {
+            console.error(error);
+        })
+    }
+
+    /**
+     * カートから削除する
+     * @param itemId アイテムid
+     */
+    const deleteFromCart = (itemId:string) => {
+        let thisCartInfo:CartInfo = JSON.parse(JSON.stringify(cartInfo));
+        delete thisCartInfo[itemId];
+
+        try{
+            //カート情報を更新する
+            cartInfoUpdate(thisCartInfo);
+            setCartInfo(thisCartInfo);
+        } catch(error){
+            console.error(error);    
+        }
+
+
+        console.info(`${itemId}を削除しました`);
+    }
+
+  /**
+   * カートに追加する クリックイベント
+   * @param event クリックイベント
+   * @param itemId アイテムid
+   * @param item 商品情報
+   */
+  const cartAddClick = async(event:React.MouseEvent<HTMLElement>,itemId:string,item:CategorysItems) => {
+    let thisCartInfo:CartInfo = JSON.parse(JSON.stringify(cartInfo));
+    let thisCartInfoItem:any = thisCartInfo[itemId];
+    //既にカート済みの場合
+    if(thisCartInfoItem){
+      thisCartInfoItem.cart = thisCartInfoItem.cart + 1;
+    } else {
+      thisCartInfo[itemId] = {
+        itemId:itemId,
+        image:item.image,
+        productname:item.productname,
+        price:item.price,
+        favorite:item.favorite,
+        cart:1
+      };
+    }
+
+    try{
+        //カート情報更新
+        await cartInfoUpdate(thisCartInfo);
+        setCartInfo(thisCartInfo);
+    } catch(error:any){
+        console.error(error);
+    }
+   }
+
+    /**
      * favorite Itemsページに遷移する。
      */
     const favoriteTrans = () => {
@@ -188,58 +302,34 @@ function CartPage(){
 
     return(
         <div>
-            <Header title="Electric Commerce" categorys={categorys}/>  
+            <Header title="Electric Commerce" categorys={categorys}/>
+            <PushSnackbar 
+              message={snackbarMessage}
+              autoHideDuration={autoHideDuration}
+              severity={severity}
+              snackbarOrigin={snackbarOrigin}
+              openFlag={snackbarOpenFlag}
+              setOpenFlag={setSnackbarOpenFlag}
+            />
             <Grid container rowSpacing={4} columnSpacing={{xs: 1, sm: 2, md: 3 }}>
-                <CartLook cartInfo={cartInfo} quantityChange={quantityChange} />
-
-                <Grid item xs={4} md={4}>
-                    <Card>
-                        <p>小計:{subTotals}</p>
-                        <p>合計:{total}</p>
-                        <Button variant="contained">購入する</Button>
-                    </Card>
-                </Grid>
+                <CartLook 
+                  cartInfo={cartInfo} 
+                  quantityChange={quantityChange}
+                  deleteFromCart={deleteFromCart}
+                />
+                <CartRes 
+                  subTotals={subTotals}
+                  total={total}
+                  purchaseClick={purchaseClick}
+                />
             </Grid>
-            
-            <Box
-                justifyContent="center"
-                alignItems="center"
-                minHeight="100vh"
-                marginTop={"30px"}
-            >
-                <Grid container alignItems="center">
-                        <Grid item xs={12} md={10}>
-                            <Card>
-                                <CardHeader title="Favorite Items" onClick={favoriteTrans}></CardHeader>
-                                {
-                                    categorys && categorys.length !== 0 && categorys.map((category:Categorys,index:number) => {
-                                        return(
-                                            <div key={index}>
-                                                { category?.items && category.items.map((item:CategorysItems,j:number) => {
-                                                    if(item.favorite){
-                                                        return(
-                                                            <CardContent style={{display:"flex",justifyContent:"space-around"}} key={j}>
-                                                                <img width="300"  height="250" src={item.image} />
-                                                                <p>{item.productname}</p>
-                                                                <div>
-                                                                    <p>{item.price}円</p>
-                                                                    <p>カートに追加する</p>
-                                                                    <p onClick={(() => deleteFavorite(index,j))}>お気に入りから削除する</p>
-                                                                </div>
-                                                            </CardContent>
-                                                        )
-                                                    }
-                                                })
-                                                }
-                                            </div>
-                                        )
-                                    })
-                                }
-                            </Card>
-                        </Grid>
-                </Grid>
 
-            </Box>
+            <FavoriteItem
+              categorys={categorys}
+              deleteFavorite={deleteFavorite}
+              favoriteTrans={favoriteTrans}
+              cartAddClick={cartAddClick}
+            />
         </div>
     )  
 }

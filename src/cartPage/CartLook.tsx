@@ -4,11 +4,12 @@ import Card from "@mui/material/Card";
 import Grid from "@mui/material/Grid";
 import CardHeader from "@mui/material/CardHeader";
 import CardContent from "@mui/material/CardContent";
-import { TextField } from "@mui/material";
+import { Button, TextField } from "@mui/material";
 
 interface Props{
-    cartInfo:any,
-    quantityChange:((event:React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,itemId:string) => {})
+    cartInfo:CartInfo,
+    quantityChange:((event:React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,itemId:string) => {}),
+    deleteFromCart:(itemId:string) => void
 }
 
 /** 
@@ -17,33 +18,34 @@ interface Props{
  * @returns jsx
  */
 function CartLook(props:Props){
-    let cartInfo = props.cartInfo;
+    let cartInfo:CartInfo = props.cartInfo
     let cartInfoKeys:string[] = Object.keys(props.cartInfo);
     return(
         <>
             <Grid item xs={8} md={8}>
                 <Card>
                     <CardHeader title="Cart"></CardHeader>
-                    {cartInfoKeys.length !== 0 && cartInfoKeys.map((cartInfoKey:string,index:number) => {
+                    {props.cartInfo && cartInfoKeys.map((itemId:string,index:number) => {
                         return(
                             <div key={index}>
                                 {
                                     <CardContent style={{display:"flex",justifyContent:"space-around"}}>
-                                        <img width="300"  height="250" src={cartInfo[cartInfoKey].itemId} />
-                                        <p>{cartInfo[cartInfoKey].productname}</p>
+                                        <img width="300"  height="250" src={cartInfo[itemId].image} />
+                                        <p>{cartInfo[itemId].productname}</p>
                                         <div>
-                                            <p>{cartInfo[cartInfoKey].price}円</p>
+                                            <p>{cartInfo[itemId].price}円</p>
                                             <div style={{display:"flex"}}>
                                                 <p>数量:</p>
                                                 <TextField
                                                 type="number"
                                                 InputProps={{ inputProps: { min: 1} }}
-                                                onChange={((e) => props.quantityChange(e,cartInfoKey))}
-                                                value={cartInfo[cartInfoKey].cart}
+                                                onChange={((e) => props.quantityChange(e,itemId))}
+                                                value={cartInfo[itemId].cart}
                                                 >
 
                                                 </TextField>
                                             </div>
+                                            <p onClick={() => props.deleteFromCart(itemId)}>カートから削除する</p>
                                         </div>
                                     </CardContent>
                                 }
