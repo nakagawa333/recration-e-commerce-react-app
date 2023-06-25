@@ -82,7 +82,7 @@ function App() {
    * カート情報を更新する
    * @param cartInfo カート情報
    */
-  const cartInfoUpdate = async(cartInfo:CartInfo) => {
+  const cartInfoUpdate = (cartInfo:CartInfo) => {
     axios.post("http://localhost:3004/cart/update",cartInfo)
     .then((res:AxiosResponse) => {
       //HTTPレスポンスが200以外
@@ -140,7 +140,7 @@ function App() {
 
     try{
       //カート情報更新
-      await cartInfoUpdate(thisCartInfo);
+      cartInfoUpdate(thisCartInfo);
       setCartInfo(thisCartInfo);
     } catch(error:any){
       console.error(error);

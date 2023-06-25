@@ -16,6 +16,7 @@ import { isNoSubstitutionTemplateLiteral } from "typescript";
 import PushSnackbar from "../snackbar/PushSnackbar";
 import CartRes from "./CartRes";
 import FavoriteItem from "./FavoriteItem";
+import useEnhancedEffect from "@mui/material/utils/useEnhancedEffect";
 /**
  * カートページ画面
  * @returns jsx
@@ -55,51 +56,46 @@ function CartPage(){
     /**
      * カテゴリー取得
      */
-    const categoryRegister = () => {
-        axios.get("http://localhost:3004/categorys/register")
-        .then((res:AxiosResponse) => {
-            //HTTPレスポンスが200以外
-            if(res.status !== HttpStatusCode.Ok){
-                console.error(res);
+    const categoryRegister = async() => {
+        try{
+            let axiosRes:AxiosResponse = await axios.get("http://localhost:3004/categorys/register");
+            if(axiosRes.status !== HttpStatusCode.Ok){
+                console.error("カート情報取得",axiosRes);
                 return;
             }
-            let categorys = res.data;
+
+            let categorys = axiosRes.data;
             //カテゴリー一覧を最新化
             setCategorys(categorys);
-            console.info("カテゴリー情報",res);
-        })
-        .catch((error:AxiosError) => {
+            console.info("カテゴリー情報取得",axiosRes);            
+        } catch(error:any){
             console.error(error);
-            console.error(error.message);
-        })
+        }
     }
 
     /**
      * カート情報を取得する
      */
-    const getCartInfo = () => {
-        axios.get("http://localhost:3004/cart/info")
-        .then((res:AxiosResponse) => {
-            //HTTPレスポンスが200以外
-            if(res.status !== HttpStatusCode.Ok){
-                console.error(res);
+    const getCartInfo = async() => {
+        try{
+            let axiosRes:AxiosResponse = await axios.get("http://localhost:3004/cart/info");
+            if(axiosRes.status !== HttpStatusCode.Ok){
+                console.error("カート情報取得",axiosRes);
                 return;
             }
-
-            //カート情報
-            let cartInfo = res.data.cartInfo;
+            let cartInfo:CartInfo = axiosRes.data?.cartInfo;
             //カート一覧
             setCartInfo(cartInfo);
             //小計を計算する
             calSubtotals(cartInfo);
             //合計を計算する
             calTotal(cartInfo);
-            console.info("カート情報取得",res);
-        })
-        .catch((error:AxiosError) => {
+            console.info("カート情報取得",axiosRes);
+
+        } catch(error:any){
             console.error(error);
             console.error(error.message);
-        })
+        }
     }  
 
     /**
@@ -113,7 +109,7 @@ function CartPage(){
         if(thisCartInfo && Object.keys(thisCartInfo).length !== 0){
             thisCartInfo[itemId]["cart"] = Number(event.target.value);
             try{
-                await cartInfoUpdate(thisCartInfo);
+                cartInfoUpdate(thisCartInfo);
                 //カート情報を更新する
                 setCartInfo(thisCartInfo);
                 //小計を計算する
@@ -130,54 +126,44 @@ function CartPage(){
      * カテゴリー情報を更新する
      * @param categorys カテゴリー一覧
      */
-    const categorysUpdate = (categorys:Categorys[]) => {
-        axios.post("http://localhost:3004/categorys/update",categorys)
-        .then((res:AxiosResponse) => {
-            //HTTPレスポンスが200以外
-            if(res.status !== HttpStatusCode.Ok){
-                console.error(res);
+    const categorysUpdate = async(categorys:Categorys[]) => {
+        try{
+            let axiosRes:AxiosResponse = await axios.post("http://localhost:3004/categorys/update",categorys);
+             //HTTPレスポンスが200以外
+             if(axiosRes.status !== HttpStatusCode.Ok){
+                console.error(axiosRes);
                 return;
-            }
-            console.info("カテゴリー更新",res);
-        })
-        .catch((error:AxiosError) => {
+            }           
+
+            console.info("カテゴリー更新",axiosRes);
+        } catch(error:any){
             console.error(error);
-            console.error(error.message);
-        })
-        .catch((error:any) => {
-            console.error(error);
-            console.error("エラーが発生しました");
-        })
+        }
     }
 
     /**
      * カート情報を更新する
      * @param cartInfo カート情報
      */
-    const cartInfoUpdate =  async(cartInfo:CartInfo) => {
-        axios.post("http://localhost:3004/cart/update",cartInfo)
-        .then((res:AxiosResponse) => {
+    const cartInfoUpdate = async(cartInfo:CartInfo) => {
+        let axiosRes:AxiosResponse = await axios.post("http://localhost:3004/cart/update",cartInfo);
+        try{
             //HTTPレスポンスが200
-            if(res.status !== HttpStatusCode.Ok){
-                throw new Error("レスポンスが異常です。");
+            if(axiosRes.status !== HttpStatusCode.Ok){
+                console.error(axiosRes);
+                return;
             }
-            console.info("カート情報更新",res);
-        })
-        .catch((error:AxiosError) => {
+            console.info("カート情報更新",axiosRes);            
+        } catch(error){
             console.error(error);
-            console.error(error.message);
-        })
-        .catch((error:any) => {
-            console.error(error);
-            console.error("エラーが発生しました");
-        })
+        }
     }
 
     /**
      * 小計を計算する。
      * @param categorys カテゴリー一覧
      */
-    const calSubtotals = (cartInfo:any[]) => {
+    const calSubtotals = (cartInfo:CartInfo) => {
         let subTotals:number = 0;
         Object.keys(cartInfo).forEach((cart:any) => {
             subTotals += cartInfo[cart].cart;
@@ -189,7 +175,7 @@ function CartPage(){
      * 合計を計算する。
      * @param categorys カテゴリー一覧
      */
-    const calTotal = (cartInfo:any[]) => {
+    const calTotal = (cartInfo:CartInfo) => {
         let total = 0;
         Object.keys(cartInfo).forEach((cart:any) => {
             total += cartInfo[cart].cart * cartInfo[cart].price;
@@ -202,12 +188,12 @@ function CartPage(){
      * @param i 
      * @param j 
      */
-    const deleteFavorite = async(i:number,j:number) => {
+    const deleteFavorite = (i:number,j:number) => {
         let thisCategorys:Categorys[] = JSON.parse(JSON.stringify(categorys));
         thisCategorys[i]["items"][j]["favorite"] = false;
 
         try{
-            await categorysUpdate(thisCategorys);
+            categorysUpdate(thisCategorys);
             setCategorys(thisCategorys);
         } catch(error:any){
             throw new Error(error.message);
@@ -217,48 +203,31 @@ function CartPage(){
     /**
      * 購入するクリック時
      */
-    const purchaseClick = () => {
+    const purchaseClick = async() => {
         // TODO 初期化処理 後で処理内容は要検討
-        axios.post("http://localhost:3004" + "/cart/init")
-        .then((res:AxiosResponse) => {
-            console.info(res);
-            //HTTPレスポンスが200以外
-            if(res.status !== HttpStatusCode.Ok){
-                console.error(res);
-                return;
-            }
+        let axiosRes:AxiosResponse = await axios.post("http://localhost:3004" + "/cart/init");
+        //HTTPレスポンスが200以外
+        if(axiosRes.status !== HttpStatusCode.Ok){
+            console.error(axiosRes);
+            return;
+        }
 
-            setSnackbarMessage("購入出来ました");
-            setSnackbarOpenFlag(true);
-            //カート情報
-            setCartInfo({});
-        })
-        .catch((error:AxiosError) => {
-            console.error(error.message);
-        })
-        .catch((error:any) => {
-            console.error(error);
-        })
+        setSnackbarMessage("購入出来ました");
+        setSnackbarOpenFlag(true);
+        //カート情報取得
+        getCartInfo();
     }
 
     /**
      * カートから削除する
      * @param itemId アイテムid
      */
-    const deleteFromCart = (itemId:string) => {
+    const deleteFromCart = async(itemId:string) => {
         let thisCartInfo:CartInfo = JSON.parse(JSON.stringify(cartInfo));
         delete thisCartInfo[itemId];
-
-        try{
-            //カート情報を更新する
-            cartInfoUpdate(thisCartInfo);
-            setCartInfo(thisCartInfo);
-        } catch(error){
-            console.error(error);    
-        }
-
-
-        console.info(`${itemId}を削除しました`);
+        
+        await cartInfoUpdate(thisCartInfo);
+        await getCartInfo();
     }
 
   /**
@@ -287,7 +256,7 @@ function CartPage(){
     try{
         //カート情報更新
         await cartInfoUpdate(thisCartInfo);
-        setCartInfo(thisCartInfo);
+        await getCartInfo();
     } catch(error:any){
         console.error(error);
     }
